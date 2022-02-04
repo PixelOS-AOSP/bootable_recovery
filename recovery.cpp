@@ -873,13 +873,11 @@ Device::BuiltinAction start_recovery(Device* device, const std::vector<std::stri
   // Extract the YYYYMMDD / YYYYMMDD_HHMMSS timestamp from the full version string.
   // Assume the first instance of "-[0-9]{8}-", or "-[0-9]{8}_[0-9]{6}-" in case
   // LINEAGE_VERSION_APPEND_TIME_OF_DAY is set to true has the desired date.
-  std::string ver = android::base::GetProperty("ro.lineage.version", "");
-  std::smatch ver_date_match;
-  std::regex_search(ver, ver_date_match, std::regex("-(\\d{8}(_\\d{6})?)-"));
-  std::string ver_date = ver_date_match.str(1);  // Empty if no match.
+  std::string ver = android::base::GetProperty("ro.custom.version", "");
+  std::string ver_date = android::base::GetProperty("ro.system.build.version.release_or_codename", "");  // Empty if no match.
 
   std::vector<std::string> title_lines = {
-    "Version " + android::base::GetProperty("ro.lineage.build.version", "(unknown)") +
+    "Version " + android::base::GetProperty("ro.custom.version", "(unknown)") +
         " (" + ver_date + ")",
   };
   title_lines.push_back("Product name - " + android::base::GetProperty("ro.product.device", ""));
