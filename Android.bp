@@ -50,18 +50,30 @@ license {
     ],
 }
 
-cc_defaults {
+soong_config_module_type {
+    name: "recovery_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "recovery",
+    value_variables: ["recovery_api_version"],
+    properties: [
+        "cflags",
+    ],
+}
+
+recovery_cc_defaults {
     name: "recovery_defaults",
 
-    cflags: [
-        "-D_FILE_OFFSET_BITS=64",
-
-        // Must be the same as RECOVERY_API_VERSION.
-        "-DRECOVERY_API_VERSION=3",
-
-        "-Wall",
-        "-Werror",
-    ],
+    soong_config_variables: {
+        recovery_api_version: {
+            cflags: [
+                "-D_FILE_OFFSET_BITS=64",
+                // Must be the same as RECOVERY_API_VERSION.
+                "-DRECOVERY_API_VERSION=%s",
+                "-Wall",
+                "-Werror",
+            ],
+        },
+    },
 }
 
 cc_library_static {
@@ -167,7 +179,7 @@ cc_binary {
     ],
 
     shared_libs: [
-        "android.hardware.health-V3-ndk", // from librecovery_utils
+        "android.hardware.health-V4-ndk", // from librecovery_utils
         "android.hardware.boot-V1-ndk",
         "librecovery_ui",
     ],
@@ -250,4 +262,60 @@ filegroup {
     srcs: [
         "res-*/images/*_text.png",
     ],
+}
+
+// recovery_deps: A phony target that's depended on by `recovery`, which
+// builds additional modules conditionally based on Makefile variables.
+phony {
+    name: "recovery_deps",
+    recovery: true,
+    required: [
+        "e2fsck.recovery",
+        "resize2fs.recovery",
+        "tune2fs.recovery",
+        "mkfs.erofs.recovery",
+        "dump.erofs.recovery",
+        "fsck.erofs.recovery",
+        // On A/B devices recovery-persist reads the recovery related file from the persist storage and
+        // copies them into /data/misc/recovery. Then, for both A/B and non-A/B devices, recovery-persist
+        // parses the last_install file and reports the embedded update metrics. Also, the last_install file
+        // will be deteleted after the report.
+        "recovery-persist",
+    ] + select(soong_config_variable("recovery", "target_userimages_use_f2fs"), {
+        true: [
+            "make_f2fs.recovery",
+            "fsck.f2fs.recovery",
+            "sload_f2fs.recovery",
+        ],
+        default: [],
+    }) + select(soong_config_variable("recovery", "has_board_cacheimage_partition_size"), {
+        false: ["recovery-refresh"],
+        default: [],
+    }),
+}
+
+cc_library_shared {
+    name: "librecovery_ui_ext",
+    recovery: true,
+    install_in_root: true,
+    multilib: {
+        lib32: {
+            relative_install_path: "system/lib",
+        },
+        lib64: {
+            relative_install_path: "system/lib64",
+        },
+    },
+    shared_libs: [
+        "libbase",
+        "liblog",
+        "librecovery_ui",
+    ],
+    // TARGET_RECOVERY_UI_LIB should be one of librecovery_ui_{default,wear,vr,ethernet} or a
+    // device-specific module that defines make_device() and the exact RecoveryUI class for the
+    // target. It defaults to librecovery_ui_default, which uses ScreenRecoveryUI.
+    whole_static_libs: select(soong_config_variable("recovery", "target_recovery_ui_lib"), {
+        any @ libs: libs,
+        default: ["librecovery_ui_default"],
+    }),
 }

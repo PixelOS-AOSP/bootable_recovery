@@ -272,6 +272,7 @@ static InstallResult prompt_and_wipe_data(Device* device) {
     "If you continue to get this message, you may need to "
     "perform a factory data reset and erase all user data "
     "stored on this device.",
+    "Reason: " + device->GetReason().value_or(""),
   };
   // clang-format off
   std::vector<std::string> wipe_data_menu_items {
